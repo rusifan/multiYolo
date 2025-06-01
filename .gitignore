@@ -1,0 +1,12 @@
+notepad.txt
+# Ignore all files in the .vscode directory
+.vscode/
+# Ignore the notepad.txt file
+# Ignore python cache files
+__pycache__/
+../../SI_crack_detection/
+../../SI_project/
+../../Surface_Image_crack/
+../
+../../Vasco_segment/
+../../cityscapes_data/
