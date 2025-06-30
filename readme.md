@@ -41,4 +41,4 @@ search `# nafis new code` for all the places changes are made.
 the detection results are visualized the segmeation results needs to be visualized to validate if the seg head is learning.
 
 ### training
-train.py has code for training. 
+train.py has code for training. The segmentation head still needs work. The model doesn't seems to learn the segmentation task properly.
