@@ -1,3 +1,7 @@
+### path
+/Documents/VASCO/custom_yolo : for multi task yolo.
+/Documents/VASCO/det_seg_yolo : for seperate yolo model with trained weights.
+
 <pre>
 import sys
 sys.path.append("/home/nafisur/Documents/VASCO/custom_yolo/ultralytics")</pre>
