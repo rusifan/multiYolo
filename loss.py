@@ -1,5 +1,7 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
-
+import os
+import sys
+sys.path.append("/home/nafisur/Documents/VASCO/custom_yolo/ultralytics")  # Adjust path to import from parent directory
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -10,7 +12,7 @@ from ultralytics.utils.tal import RotatedTaskAlignedAssigner, TaskAlignedAssigne
 from ultralytics.utils.torch_utils import autocast
 
 from metrics import bbox_iou, probiou
-from tal import bbox2dist
+from ultralytics.utils.tal import bbox2dist
 
 
 class VarifocalLoss(nn.Module):
@@ -165,12 +167,15 @@ class KeypointLoss(nn.Module):
 class v8DetectionLoss:
     """Criterion class for computing training losses for YOLOv8 object detection."""
 
-    def __init__(self, model, tal_topk=10):  # model must be de-paralleled
+    def __init__(self, model, model_params, device, tal_topk=10):  # model must be de-paralleled
         """Initialize v8DetectionLoss with model parameters and task-aligned assignment settings."""
-        device = next(model.parameters()).device  # get model device
-        h = model.args  # hyperparameters
+        # device = next(model.parameters()).device  # get model device
+        device = device
+        h = model_params  # hyperparameters
 
-        m = model.model[-1]  # Detect() module
+        ### nafis new code
+        m = model.det_head_layers  # Detect() module 
+        # m = model.model[-1]
         self.bce = nn.BCEWithLogitsLoss(reduction="none")
         self.hyp = h
         self.stride = m.stride  # model strides
@@ -178,6 +183,7 @@ class v8DetectionLoss:
         self.no = m.nc + m.reg_max * 4
         self.reg_max = m.reg_max
         self.device = device
+        self.m = m  # Detect() module
 
         self.use_dfl = m.reg_max > 1
 
@@ -271,10 +277,33 @@ class v8DetectionLoss:
 class v8SegmentationLoss(v8DetectionLoss):
     """Criterion class for computing training losses for YOLOv8 segmentation."""
 
-    def __init__(self, model):  # model must be de-paralleled
-        """Initialize the v8SegmentationLoss class with model parameters and mask overlap setting."""
-        super().__init__(model)
-        self.overlap = model.args.overlap_mask
+    # def __init__(self, model):  # model must be de-paralleled
+    #     """Initialize the v8SegmentationLoss class with model parameters and mask overlap setting."""
+    #     super().__init__(model)
+    #     self.overlap = model.args.overlap_mask
+    ### nafis new code
+    def __init__(self, model, model_params, device, tal_topk=10):  # model must be de-paralleled
+        """Initialize v8DetectionLoss with model parameters and task-aligned assignment settings."""
+        # device = next(model.parameters()).device  # get model device
+        ### nafis new code
+        device = device
+        h = model_params  # hyperparameters
+
+        m = model.seg_head_layers[12]  # Detect() module 
+        self.bce = nn.BCEWithLogitsLoss(reduction="none")
+        self.hyp = h
+        self.stride = m.stride  # model strides
+        self.nc = m.nc  # number of classes
+        self.no = m.nc + m.reg_max * 4
+        self.reg_max = m.reg_max
+        self.device = device
+
+        self.use_dfl = m.reg_max > 1
+
+        self.assigner = TaskAlignedAssigner(topk=tal_topk, num_classes=self.nc, alpha=0.5, beta=6.0)
+        self.bbox_loss = BboxLoss(m.reg_max).to(device)
+        self.proj = torch.arange(m.reg_max, dtype=torch.float, device=device)
+        self.overlap = h.overlap_mask
 
     def __call__(self, preds, batch):
         """Calculate and return the combined loss for detection and segmentation."""
@@ -293,6 +322,7 @@ class v8SegmentationLoss(v8DetectionLoss):
         dtype = pred_scores.dtype
         imgsz = torch.tensor(feats[0].shape[2:], device=self.device, dtype=dtype) * self.stride[0]  # image size (h,w)
         anchor_points, stride_tensor = make_anchors(feats, self.stride, 0.5)
+        
 
         # Targets
         try:

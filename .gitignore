@@ -10,3 +10,7 @@ __pycache__/
 ../
 ../../Vasco_segment/
 ../../cityscapes_data/
+*.pth
+*.pt
+/runs
+*.png
